@@ -5,6 +5,8 @@ import '@xterm/xterm/css/xterm.css'
 import { InputPopover } from './InputPopover'
 import { useInputPopoverStore } from '../stores/inputPopoverStore'
 import { useThemeStore } from '../stores/themeStore'
+import { useClaudeStatusStore } from '../stores/claudeStatusStore'
+import { ClaudeCodeDetector } from '../utils/claudeCodeDetector'
 import claudeColorSvg from '/claude-color.svg'
 
 interface XtermWrapperProps {
@@ -31,9 +33,11 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
+  const detectorRef = useRef<ClaudeCodeDetector | null>(null)
   const initializedRef = useRef(false)
   const cleanupRef = useRef<(() => void) | null>(null)
   const { currentTheme } = useThemeStore()
+  const setStatus = useClaudeStatusStore((state) => state.setStatus)
 
   // テーマからxtermのテーマオブジェクトを生成
   const getXtermTheme = useCallback(() => ({
@@ -87,6 +91,13 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
       terminalRef.current = terminal
       fitAddonRef.current = fitAddon
       initializedRef.current = true
+
+      // Claude Code状態検知器を初期化
+      const detector = new ClaudeCodeDetector()
+      detectorRef.current = detector
+      detector.onStateChange((state) => {
+        setStatus(sessionId, state.status)
+      })
 
       // Intercept special keys - don't let xterm handle them
       terminal.attachCustomKeyEventHandler((event) => {
@@ -154,6 +165,8 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
       const unsubscribeData = window.electronAPI.onSessionData((sid: string, data: string) => {
         if (sid === sessionId && terminalRef.current) {
           terminalRef.current.write(data)
+          // 検知器にデータを渡す
+          detectorRef.current?.onData(data)
         }
       })
 
@@ -177,6 +190,8 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
         window.removeEventListener('resize', handleResize)
         resizeObserver.disconnect()
         unsubscribeData()
+        detectorRef.current?.dispose()
+        detectorRef.current = null
       }
     }
 

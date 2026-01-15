@@ -1455,3 +1455,35 @@ body,
 .settings-modal .settings-tab {
     max-height: calc(80vh - 60px);
 }
+
+/* Claude Code Status Badge */
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: "Menlo", monospace;
+    transition: all 0.2s ease;
+}
+
+.status-idle {
+    background: var(--bg-elevated);
+    color: var(--text-secondary);
+}
+
+.status-processing {
+    background: #2e4a5c;
+    color: #7fc4e5;
+}
+
+.status-waiting {
+    background: #2e5c3a;
+    color: #7fcc8f;
+}
+
+/* Spinning animation for processing icon */
+.status-processing .spinning {
+    animation: spin 1s linear infinite;
+}
