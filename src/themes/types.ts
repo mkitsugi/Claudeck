@@ -35,6 +35,14 @@ export interface ThemeColors {
   // Project
   'project-icon': string
 
+  // Sidebar
+  'sidebar-bg': string
+  'sidebar-text': string
+  'sidebar-text-secondary': string
+  'sidebar-hover': string
+  'sidebar-active': string
+  'sidebar-border': string
+
   // Terminal (xterm)
   'terminal-bg': string
   'terminal-fg': string

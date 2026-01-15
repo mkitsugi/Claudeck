@@ -11,7 +11,7 @@ import type { Theme } from '../types'
 export const slackTheme: Theme = {
   id: 'slack',
   name: 'Slack',
-  description: 'クリーンでプロフェッショナルなSlack風',
+  description: 'Slack風 紫サイドバー＋ライトテーマ',
   colors: {
     // Background - Slackのライトモード
     'bg-primary': '#ffffff',
@@ -30,7 +30,7 @@ export const slackTheme: Theme = {
     'border-secondary': '#e8e8e8',
 
     // Accent - Slack公式カラー
-    'accent-primary': '#4A154B',  // Aubergine
+    'accent-primary': '#7C3085',  // 明るい紫
     'accent-selection': '#f3e8ff',
     'accent-success': '#2EB67D',  // Slack Green
     'accent-warning': '#ECB22E',  // Slack Yellow
@@ -46,6 +46,14 @@ export const slackTheme: Theme = {
 
     // Project
     'project-icon': '#ECB22E',
+
+    // Sidebar - Slack紫サイドバー！
+    'sidebar-bg': '#4A154B',         // Slack Aubergine
+    'sidebar-text': '#FFFFFF',
+    'sidebar-text-secondary': '#E8D5E8',
+    'sidebar-hover': '#611F69',
+    'sidebar-active': '#611F69',
+    'sidebar-border': '#350D36',
 
     // Terminal - ライト背景のターミナル
     'terminal-bg': '#ffffff',

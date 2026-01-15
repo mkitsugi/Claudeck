@@ -39,6 +39,14 @@ export const darkTheme: Theme = {
     // Project
     'project-icon': '#dcb67a',
 
+    // Sidebar
+    'sidebar-bg': '#252526',
+    'sidebar-text': '#d4d4d4',
+    'sidebar-text-secondary': '#808080',
+    'sidebar-hover': '#2a2d2e',
+    'sidebar-active': '#094771',
+    'sidebar-border': '#3c3c3c',
+
     // Terminal (xterm)
     'terminal-bg': '#1e1e1e',
     'terminal-fg': '#d4d4d4',

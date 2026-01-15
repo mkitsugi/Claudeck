@@ -1,11 +1,17 @@
 import type { Theme } from '../types'
 
+// Notion公式カラー
+// Brand: Black #000000, White #FFFFFF
+// Default Text: #37352F
+// Gray: #9B9A97
+// Accent colors: Blue #0B6E99, Green #0F7B6C, etc.
+
 export const notionTheme: Theme = {
   id: 'notion',
   name: 'Notion',
-  description: 'ミニマルで温かみのあるNotion風',
+  description: 'ミニマルなNotion風 白ベース＋黒アクセント',
   colors: {
-    // Background - Notionのライトモード（温かみのあるベージュ系）
+    // Background - Notionのライトモード
     'bg-primary': '#ffffff',
     'bg-secondary': '#f7f6f3',
     'bg-tertiary': '#f1f1ef',
@@ -17,27 +23,35 @@ export const notionTheme: Theme = {
     'text-secondary': '#787774',
     'text-muted': '#9b9a97',
 
-    // Border
+    // Border - 薄いグレー
     'border-primary': '#e9e9e7',
     'border-secondary': '#dfdfde',
 
-    // Accent - Notionのブルー＆ニュートラルカラー
-    'accent-primary': '#2eaadc',
-    'accent-selection': '#d3e5ef',
-    'accent-success': '#0f7b6c',
-    'accent-warning': '#dfab01',
-    'accent-danger': '#e03e3e',
+    // Accent - Notion Black
+    'accent-primary': '#000000',  // Notion Black
+    'accent-selection': '#EBECED',
+    'accent-success': '#0f7b6c',  // Notion Green
+    'accent-warning': '#D9730D',  // Notion Orange
+    'accent-danger': '#e03e3e',   // Notion Red
 
     // Badges - Notionのパステルカラー
-    'badge-node-bg': '#dbeddb',
+    'badge-node-bg': '#DDEDEA',
     'badge-node-text': '#0f7b6c',
-    'badge-branch-bg': '#e8deee',
-    'badge-branch-text': '#6940a5',
-    'badge-port-bg': '#fdecc8',
-    'badge-port-text': '#9f6b00',
+    'badge-branch-bg': '#EBECED',
+    'badge-branch-text': '#37352f',
+    'badge-port-bg': '#FAEBDD',
+    'badge-port-text': '#D9730D',
 
     // Project
-    'project-icon': '#dfab01',
+    'project-icon': '#37352f',
+
+    // Sidebar - Notion White/Beige
+    'sidebar-bg': '#f7f6f3',
+    'sidebar-text': '#37352f',
+    'sidebar-text-secondary': '#9B9A97',
+    'sidebar-hover': '#efefef',
+    'sidebar-active': '#EBECED',
+    'sidebar-border': '#e9e9e7',
 
     // Terminal - Notion風ライトターミナル
     'terminal-bg': '#ffffff',

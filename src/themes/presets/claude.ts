@@ -46,6 +46,14 @@ export const claudeTheme: Theme = {
     // Project
     'project-icon': '#da7756',
 
+    // Sidebar - Claude Terra Cotta
+    'sidebar-bg': '#da7756',
+    'sidebar-text': '#FFFFFF',
+    'sidebar-text-secondary': '#FFE4D9',
+    'sidebar-hover': '#c96a4c',
+    'sidebar-active': '#b85d40',
+    'sidebar-border': '#c96a4c',
+
     // Terminal - Claude風の温かいライトターミナル
     'terminal-bg': '#F4F3EE',
     'terminal-fg': '#1a1a1a',
