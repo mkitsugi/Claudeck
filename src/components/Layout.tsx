@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Loader2, CircleDot, MessageSquare } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { SessionHeader } from './SessionHeader'
 import { XtermWrapper } from './XtermWrapper'
@@ -9,7 +10,39 @@ import { UpdateBanner } from './UpdateBanner'
 import { useProjectStore } from '../stores/projectStore'
 import { useSessionStore } from '../stores/sessionStore'
 import { useSidebarStore } from '../stores/sidebarStore'
+import { useClaudeStatusStore } from '../stores/claudeStatusStore'
 import type { Session } from '../types'
+import type { ClaudeCodeStatus } from '../utils/claudeCodeDetector'
+
+// 状態に応じたアイコンを返す
+function StatusIndicator({ status, isFocused }: { status: ClaudeCodeStatus; isFocused: boolean }) {
+  // フォーカスが当たっているペインは表示しない
+  if (isFocused) return null
+
+  const iconProps = { size: 10 }
+
+  switch (status) {
+    case 'processing':
+      return (
+        <span className="pane-status pane-status-processing" title="処理中">
+          <Loader2 {...iconProps} className="spinning" />
+        </span>
+      )
+    case 'waiting-input':
+      return (
+        <span className="pane-status pane-status-waiting" title="入力待ち">
+          <MessageSquare {...iconProps} />
+        </span>
+      )
+    case 'idle':
+    default:
+      return (
+        <span className="pane-status pane-status-idle" title="待機中">
+          <CircleDot {...iconProps} />
+        </span>
+      )
+  }
+}
 
 const DEFAULT_SESSION_COUNT = 4
 
@@ -17,6 +50,7 @@ export function Layout() {
   const { projects, selectedProjectId } = useProjectStore()
   const { sessions, activeSessionId, addSession, removeSession, setActiveSession } = useSessionStore()
   const { collapsed: sidebarCollapsed, setCollapsed: setSidebarCollapsed } = useSidebarStore()
+  const statuses = useClaudeStatusStore((state) => state.statuses)
   const [sessionCwds, setSessionCwds] = useState<Map<string, string>>(new Map())
   const [sessionPorts, setSessionPorts] = useState<Map<string, Set<number>>>(new Map())
   const creatingSessionsRef = useRef<Set<string>>(new Set())
@@ -162,7 +196,6 @@ export function Layout() {
               ports={activePorts}
               sidebarCollapsed={sidebarCollapsed}
               onToggleSidebar={() => setSidebarCollapsed(false)}
-              activeSessionId={activeSessionId}
             />
             <div className="terminal-grid">
               {projectSessions.map((session, index) => (
@@ -173,6 +206,11 @@ export function Layout() {
                 >
                   <div className="pane-header">
                     <span className="pane-number">{index + 1}</span>
+                    <StatusIndicator
+                      status={statuses[session.id] || 'idle'}
+                      isFocused={activeSessionId === session.id}
+                    />
+                    <span className="pane-header-spacer" />
                     <button
                       className="pane-close"
                       onClick={(e) => {

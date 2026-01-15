@@ -1456,34 +1456,36 @@ body,
     max-height: calc(80vh - 60px);
 }
 
-/* Claude Code Status Badge */
-.status-badge {
+/* Pane Header Status Indicator */
+.pane-header-spacer {
+    flex: 1;
+}
+
+.pane-status {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-family: "Menlo", monospace;
+    justify-content: center;
+    padding: 2px 4px;
+    border-radius: 3px;
     transition: all 0.2s ease;
 }
 
-.status-idle {
-    background: var(--bg-elevated);
+.pane-status-idle {
     color: var(--text-secondary);
+    opacity: 0.5;
 }
 
-.status-processing {
-    background: #2e4a5c;
+.pane-status-processing {
     color: #7fc4e5;
+    background: rgba(46, 74, 92, 0.5);
 }
 
-.status-waiting {
-    background: #2e5c3a;
+.pane-status-waiting {
     color: #7fcc8f;
+    background: rgba(46, 92, 58, 0.5);
 }
 
 /* Spinning animation for processing icon */
-.status-processing .spinning {
+.pane-status-processing .spinning {
     animation: spin 1s linear infinite;
 }

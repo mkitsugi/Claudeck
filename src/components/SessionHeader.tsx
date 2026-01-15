@@ -1,42 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Folder, GitBranch, Globe, PanelLeft, Settings, X, Loader2, CircleDot, MessageSquare } from 'lucide-react'
+import { Folder, GitBranch, Globe, PanelLeft, Settings, X } from 'lucide-react'
 import { isDropdownMode } from '../utils/isDropdownMode'
 import { SettingsTab } from './SettingsTab'
-import { useClaudeStatusStore } from '../stores/claudeStatusStore'
 import type { ProjectInfo } from '../types'
-import type { ClaudeCodeStatus } from '../utils/claudeCodeDetector'
 
 interface SessionHeaderProps {
   projectPath: string
   ports?: number[]
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
-  activeSessionId?: string | null
-}
-
-// 状態に応じたラベルとアイコンを返す
-function getStatusDisplay(status: ClaudeCodeStatus) {
-  switch (status) {
-    case 'processing':
-      return {
-        label: '処理中',
-        icon: Loader2,
-        className: 'status-badge status-processing',
-      }
-    case 'waiting-input':
-      return {
-        label: '入力待ち',
-        icon: MessageSquare,
-        className: 'status-badge status-waiting',
-      }
-    case 'idle':
-    default:
-      return {
-        label: '待機中',
-        icon: CircleDot,
-        className: 'status-badge status-idle',
-      }
-  }
 }
 
 function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -55,16 +27,9 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-export function SessionHeader({ projectPath, ports = [], sidebarCollapsed, onToggleSidebar, activeSessionId }: SessionHeaderProps) {
+export function SessionHeader({ projectPath, ports = [], sidebarCollapsed, onToggleSidebar }: SessionHeaderProps) {
   const [info, setInfo] = useState<ProjectInfo | null>(null)
   const [showSettings, setShowSettings] = useState(false)
-
-  // アクティブセッションの状態を取得
-  const status = useClaudeStatusStore((state) =>
-    activeSessionId ? state.statuses[activeSessionId] || 'idle' : 'idle'
-  )
-  const statusDisplay = getStatusDisplay(status)
-  const StatusIcon = statusDisplay.icon
 
   useEffect(() => {
     if (projectPath) {
@@ -104,12 +69,6 @@ export function SessionHeader({ projectPath, ports = [], sidebarCollapsed, onTog
           <span className="badge branch-badge">
             <GitBranch size={12} />
             {info.gitBranch}
-          </span>
-        )}
-        {activeSessionId && (
-          <span className={`badge ${statusDisplay.className}`}>
-            <StatusIcon size={12} className={status === 'processing' ? 'spinning' : ''} />
-            {statusDisplay.label}
           </span>
         )}
         {uniquePorts.length > 0 && (
