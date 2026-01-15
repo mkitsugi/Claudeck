@@ -51,7 +51,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "kisukidaiki",
+      "owner": "mkitsugi",
       "repo": "Claudeck"
     }
   },
