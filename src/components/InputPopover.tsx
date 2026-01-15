@@ -37,7 +37,7 @@ export function InputPopover({ projectPath }: InputPopoverProps) {
     close,
   } = useInputPopoverStore()
 
-  const { entries, favorites, sortMode, loadCommands, addCommand } = useCommandStore()
+  const { entries, favorites, sortMode, loadCommands } = useCommandStore()
   const { scripts, packageManager, loadScripts } = useScriptsStore()
   const { activeSessionId } = useSessionStore()
   const popoverRef = useRef<HTMLDivElement>(null)
@@ -74,22 +74,25 @@ export function InputPopover({ projectPath }: InputPopoverProps) {
   const currentItems = activeTab === 'history' ? historyItems : scriptEntries
   const maxIndex = currentItems.length - 1
 
-  const runHistoryCommand = useCallback(
-    async (command: string) => {
+  // Calculate popover position (above or below input)
+  const POPOVER_HEIGHT = 280
+  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
+  const showAbove = cursorPosition ? cursorPosition.y > POPOVER_HEIGHT + 20 : true
+
+  const pasteCommand = useCallback(
+    (command: string) => {
       if (!activeSessionId) return
-      window.electronAPI.writeSession(activeSessionId, command + '\n')
-      if (projectPath) {
-        await addCommand(command, projectPath)
-      }
+      window.electronAPI.writeSession(activeSessionId, command)
       close()
     },
-    [activeSessionId, projectPath, addCommand, close]
+    [activeSessionId, close]
   )
 
-  const runScript = useCallback(
-    async (scriptName: string) => {
+  const pasteScript = useCallback(
+    (scriptName: string) => {
       if (!activeSessionId) return
-      await window.electronAPI.runScript(activeSessionId, scriptName, packageManager)
+      const command = `${packageManager} run ${scriptName}`
+      window.electronAPI.writeSession(activeSessionId, command)
       close()
     },
     [activeSessionId, packageManager, close]
@@ -109,20 +112,30 @@ export function InputPopover({ projectPath }: InputPopoverProps) {
         case 'ArrowUp':
           e.preventDefault()
           e.stopPropagation()
-          setSelectedIndex(Math.max(selectedIndex - 1, 0))
+          // Close if at top and popover is below input
+          if (selectedIndex === 0 && !showAbove) {
+            close()
+          } else {
+            setSelectedIndex(Math.max(selectedIndex - 1, 0))
+          }
           break
         case 'ArrowDown':
           e.preventDefault()
           e.stopPropagation()
-          setSelectedIndex(Math.min(selectedIndex + 1, maxIndex))
+          // Close if at bottom and popover is above input
+          if (selectedIndex === maxIndex && showAbove) {
+            close()
+          } else {
+            setSelectedIndex(Math.min(selectedIndex + 1, maxIndex))
+          }
           break
         case 'Enter':
           e.preventDefault()
           e.stopPropagation()
           if (activeTab === 'history' && historyItems[selectedIndex]) {
-            runHistoryCommand(historyItems[selectedIndex].command)
+            pasteCommand(historyItems[selectedIndex].command)
           } else if (activeTab === 'scripts' && scriptEntries[selectedIndex]) {
-            runScript(scriptEntries[selectedIndex][0])
+            pasteScript(scriptEntries[selectedIndex][0])
           }
           break
         case 'Escape':
@@ -137,12 +150,13 @@ export function InputPopover({ projectPath }: InputPopoverProps) {
       activeTab,
       selectedIndex,
       maxIndex,
+      showAbove,
       historyItems,
       scriptEntries,
       setActiveTab,
       setSelectedIndex,
-      runHistoryCommand,
-      runScript,
+      pasteCommand,
+      pasteScript,
       close,
     ]
   )
@@ -163,10 +177,6 @@ export function InputPopover({ projectPath }: InputPopoverProps) {
   }, [isOpen, selectedIndex])
 
   if (!isOpen) return null
-
-  const POPOVER_HEIGHT = 280
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 800
-  const showAbove = cursorPosition ? cursorPosition.y > POPOVER_HEIGHT + 20 : true
 
   const popoverStyle: React.CSSProperties = cursorPosition
     ? {
@@ -204,7 +214,7 @@ export function InputPopover({ projectPath }: InputPopoverProps) {
               <div
                 key={`${entry.command}-${index}`}
                 className={`input-popover-item ${index === selectedIndex ? 'selected' : ''}`}
-                onClick={() => runHistoryCommand(entry.command)}
+                onClick={() => pasteCommand(entry.command)}
                 onMouseEnter={() => setSelectedIndex(index)}
               >
                 {entry.isFavorite && <span className="popover-favorite">★</span>}
@@ -224,7 +234,7 @@ export function InputPopover({ projectPath }: InputPopoverProps) {
             <div
               key={name}
               className={`input-popover-item ${index === selectedIndex ? 'selected' : ''} ${isServerScript(name) ? 'server-script' : ''}`}
-              onClick={() => runScript(name)}
+              onClick={() => pasteScript(name)}
               onMouseEnter={() => setSelectedIndex(index)}
             >
               {isServerScript(name) && <span className="popover-server">●</span>}

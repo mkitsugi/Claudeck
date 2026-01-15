@@ -12,18 +12,22 @@ function getShellPath(): string {
   // Check process.env.SHELL first
   const envShell = process.env.SHELL
   if (envShell && fs.existsSync(envShell)) {
+    console.log(`[PtyManager] Using shell from env: ${envShell}`)
     return envShell
   }
 
   // Fallback to common shell paths
-  const commonShells = ['/bin/zsh', '/usr/bin/zsh', '/bin/bash', '/usr/bin/bash', '/bin/sh']
+  const commonShells = ['/bin/zsh', '/usr/bin/zsh', '/bin/bash', '/usr/bin/bash', '/bin/sh', '/usr/bin/sh']
   for (const shellPath of commonShells) {
     if (fs.existsSync(shellPath)) {
+      console.log(`[PtyManager] Using fallback shell: ${shellPath}`)
       return shellPath
     }
   }
 
-  return '/bin/zsh' // Last resort
+  // /bin/sh should always exist on Unix-like systems
+  console.error('[PtyManager] No shell found! Checked:', commonShells, 'SHELL env:', envShell)
+  return '/bin/sh'
 }
 
 const shell = getShellPath()

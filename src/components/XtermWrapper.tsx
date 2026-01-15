@@ -6,6 +6,7 @@ import { InputPopover } from './InputPopover'
 import { useInputPopoverStore } from '../stores/inputPopoverStore'
 import { useThemeStore } from '../stores/themeStore'
 import { useGhostCompletionStore } from '../stores/ghostCompletionStore'
+import { useCommandStore } from '../stores/commandStore'
 import claudeColorSvg from '/claude-color.svg'
 
 interface XtermWrapperProps {
@@ -21,6 +22,7 @@ function ClaudeButton({ onClick }: { onClick: () => void }) {
         className="claude-button"
         onClick={onClick}
         title="claude コマンドを実行"
+        tabIndex={-1}
       >
         <img src={claudeColorSvg} alt="Claude" width={18} height={18} />
       </button>
@@ -101,7 +103,7 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
           // If ghost is active, accept completion
           if (ghostStore.isActive) {
             window.electronAPI.writeSession(sessionId, ghostStore.ghostText)
-            ghostStore.clear()
+            ghostStore.accept() // Use accept() to set justAccepted flag
             return false
           }
 
@@ -111,8 +113,12 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
           const line = buffer.getLine(cursorY)
           if (line) {
             const lineText = line.translateToString(true)
-            const promptMatch = lineText.match(/^>\s*(.*)$/)
-            const currentInput = promptMatch ? promptMatch[1] : ''
+            // More flexible prompt detection: match common prompts ($, >, %, #, ❯) and get text after
+            const promptMatch = lineText.match(/(?:^|\s)[$>%#❯]\s*(.+)$/)
+            const currentInput = promptMatch ? promptMatch[1].trim() : ''
+
+            console.log('[Tab Completion] lineText:', JSON.stringify(lineText))
+            console.log('[Tab Completion] currentInput:', currentInput)
 
             if (currentInput) {
               // Has input - trigger completion
@@ -121,16 +127,21 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
                 cwd: cwdRef.current,
                 projectPath,
               }).then((result) => {
+                console.log('[Tab Completion] result:', result)
                 if (result.completion) {
                   const screenEl = containerRef.current?.querySelector('.xterm-screen')
-                  if (screenEl) {
+                  const wrapperEl = containerRef.current?.parentElement // xterm-wrapper
+                  if (screenEl && wrapperEl) {
                     const screenRect = screenEl.getBoundingClientRect()
+                    const wrapperRect = wrapperEl.getBoundingClientRect()
                     const cellWidth = screenRect.width / terminal.cols
                     const cellHeight = screenRect.height / terminal.rows
+                    // Calculate position relative to xterm-wrapper
                     const pos = {
-                      x: buffer.cursorX * cellWidth,
-                      y: buffer.cursorY * cellHeight,
+                      x: (screenRect.left - wrapperRect.left) + (buffer.cursorX * cellWidth),
+                      y: (screenRect.top - wrapperRect.top) + (buffer.cursorY * cellHeight),
                     }
+                    console.log('[Tab Completion] ghost position:', pos)
                     useGhostCompletionStore.getState().setGhost(result.completion, result.type, pos.x, pos.y)
                     setGhostPosition(pos)
                   }
@@ -148,7 +159,7 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
           const ghostStore = useGhostCompletionStore.getState()
           if (ghostStore.isActive) {
             window.electronAPI.writeSession(sessionId, ghostStore.ghostText)
-            ghostStore.clear()
+            ghostStore.accept()
             return false
           }
         }
@@ -203,6 +214,25 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
             return false
           }
         }
+
+        // Save command to history when Enter is pressed
+        if (event.key === 'Enter' && event.type === 'keydown') {
+          const buffer = terminal.buffer.active
+          const cursorY = buffer.cursorY + buffer.viewportY
+          const line = buffer.getLine(cursorY)
+          if (line) {
+            const lineText = line.translateToString(true)
+            // Extract command after prompt (> or other common prompts)
+            const promptMatch = lineText.match(/^(?:.*[$>%#❯])\s*(.+)$/)
+            if (promptMatch && promptMatch[1]) {
+              const command = promptMatch[1].trim()
+              if (command) {
+                useCommandStore.getState().addCommand(command, projectPath)
+              }
+            }
+          }
+        }
+
         return true
       })
 
@@ -217,6 +247,46 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
         // Clear ghost when user types
         useGhostCompletionStore.getState().clear()
         window.electronAPI.writeSession(sessionId, data)
+
+        // Auto-trigger completion after typing (with small delay)
+        // Skip for control characters (Enter, Backspace, etc)
+        if (data.length === 1 && data.charCodeAt(0) >= 32) {
+          setTimeout(() => {
+            const buffer = terminal.buffer.active
+            const cursorY = buffer.cursorY + buffer.viewportY
+            const line = buffer.getLine(cursorY)
+            if (line) {
+              const lineText = line.translateToString(true)
+              const promptMatch = lineText.match(/(?:^|\s)[$>%#❯]\s*(.+)$/)
+              const currentInput = promptMatch ? promptMatch[1].trim() : ''
+
+              if (currentInput && currentInput.length >= 2) {
+                window.electronAPI.getCompletion({
+                  input: currentInput,
+                  cwd: cwdRef.current,
+                  projectPath,
+                }).then((result) => {
+                  if (result.completion) {
+                    const screenEl = containerRef.current?.querySelector('.xterm-screen')
+                    const wrapperEl = containerRef.current?.parentElement
+                    if (screenEl && wrapperEl) {
+                      const screenRect = screenEl.getBoundingClientRect()
+                      const wrapperRect = wrapperEl.getBoundingClientRect()
+                      const cellWidth = screenRect.width / terminal.cols
+                      const cellHeight = screenRect.height / terminal.rows
+                      const pos = {
+                        x: (screenRect.left - wrapperRect.left) + (buffer.cursorX * cellWidth),
+                        y: (screenRect.top - wrapperRect.top) + (buffer.cursorY * cellHeight),
+                      }
+                      useGhostCompletionStore.getState().setGhost(result.completion, result.type, pos.x, pos.y)
+                      setGhostPosition(pos)
+                    }
+                  }
+                })
+              }
+            }
+          }, 50) // Small delay to let terminal update
+        }
       })
 
       // Handle output - subscribe to data for this session

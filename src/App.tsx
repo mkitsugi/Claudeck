@@ -6,6 +6,7 @@ import { useSessionStore } from './stores/sessionStore'
 import { useProjectStore } from './stores/projectStore'
 import { useSidebarStore } from './stores/sidebarStore'
 import { useThemeStore } from './stores/themeStore'
+import { useGhostCompletionStore } from './stores/ghostCompletionStore'
 import './index.css'
 
 export function App() {
@@ -55,7 +56,14 @@ export function App() {
         toggleSidebar()
       }
       // Tab to cycle through panes (Shift+Tab is reserved for Claude Code)
+      // Skip if ghost completion is active or was just accepted
       if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        const ghostStore = useGhostCompletionStore.getState()
+        if (ghostStore.isActive || ghostStore.justAccepted) {
+          // Ghost is active or just accepted - prevent default Tab behavior (focus change)
+          e.preventDefault()
+          return
+        }
         e.preventDefault()
         cyclePane('next')
       }
