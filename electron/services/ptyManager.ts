@@ -1,7 +1,7 @@
 import os from 'os'
 import fs from 'fs'
 import pty from 'node-pty'
-import type { BrowserWindow } from 'electron'
+import type { BrowserWindow, WebContents } from 'electron'
 
 // Determine shell path - prefer existing shell, fallback to common paths
 function getShellPath(): string {
@@ -32,23 +32,30 @@ interface PtySession {
   id: string
   pty: pty.IPty
   cwd: string
+  webContents: WebContents
+}
+
+interface DropdownPtySession {
+  id: string
+  pty: pty.IPty
+  cwd: string
 }
 
 class PtyManager {
   private sessions: Map<string, PtySession> = new Map()
-  private mainWindow: BrowserWindow | null = null
   private dropdownWindow: BrowserWindow | null = null
-  private dropdownSessions: Map<string, PtySession> = new Map()
+  private dropdownSessions: Map<string, DropdownPtySession> = new Map()
 
-  setMainWindow(window: BrowserWindow | null) {
-    this.mainWindow = window
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  setMainWindow(_window: BrowserWindow | null) {
+    // No longer needed - sessions now track their own webContents
   }
 
   setDropdownWindow(window: BrowserWindow | null) {
     this.dropdownWindow = window
   }
 
-  create(sessionId: string, cwd: string): void {
+  create(sessionId: string, cwd: string, webContents: WebContents): void {
     // Minimal prompt - just >
     // Skip loading user's zshrc to avoid prompt override
     // Remove PATH from process.env to let shell inherit user's PATH from .zshrc/.zprofile
@@ -60,6 +67,10 @@ class PtyManager {
       PROMPT: '> ',
       // Minimal PATH - just system essentials, user's PATH will be set by their shell config
       PATH: '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+      // Locale settings for proper UTF-8 handling (especially important for production builds)
+      LANG: process.env.LANG || 'en_US.UTF-8',
+      LC_ALL: process.env.LC_ALL || 'en_US.UTF-8',
+      LC_CTYPE: process.env.LC_CTYPE || 'UTF-8',
     } as { [key: string]: string }
 
     // Create zshrc that loads user config then overrides prompt
@@ -96,8 +107,16 @@ export PATH="${zshDir}/bin:\$PATH"
 PROMPT="> "
 
 # Send current directory via OSC 7 on each command
+# Send git branch via OSC 9999 (custom)
 precmd() {
   printf '\\033]7;file://%s%s\\033\\\\' "\${HOST}" "\${PWD}"
+  local branch
+  branch=\$(git branch --show-current 2>/dev/null)
+  if [[ -n "\$branch" ]]; then
+    printf '\\033]9999;%s\\033\\\\' "\$branch"
+  else
+    printf '\\033]9999;\\033\\\\'
+  fi
 }
 `)
 
@@ -121,13 +140,21 @@ precmd() {
     }
 
     ptyProcess.onData((data) => {
-      if (this.mainWindow) {
+      if (!webContents.isDestroyed()) {
         // Parse OSC 7 for current directory
         // Format: \e]7;file://hostname/path\a or \e]7;file://hostname/path\e\\
         const osc7Match = data.match(/\x1b\]7;file:\/\/[^\/]*(\/[^\x07\x1b]*)(?:\x07|\x1b\\)/)
         if (osc7Match) {
           const currentDir = decodeURIComponent(osc7Match[1])
-          this.mainWindow.webContents.send('session:cwd', sessionId, currentDir)
+          webContents.send('session:cwd', sessionId, currentDir)
+        }
+
+        // Parse OSC 9999 for git branch
+        // Format: \e]9999;branchname\e\\
+        const osc9999Match = data.match(/\x1b\]9999;([^\x07\x1b]*)(?:\x07|\x1b\\)/)
+        if (osc9999Match) {
+          const gitBranch = osc9999Match[1] || ''
+          webContents.send('session:git-branch', sessionId, gitBranch)
         }
 
         // Detect running ports from output
@@ -143,19 +170,19 @@ precmd() {
           for (const match of matches) {
             const port = parseInt(match[1], 10)
             if (port >= 1024 && port <= 65535) {
-              this.mainWindow.webContents.send('session:port', sessionId, port)
+              webContents.send('session:port', sessionId, port)
             }
           }
         }
 
-        this.mainWindow.webContents.send('session:data', sessionId, data)
+        webContents.send('session:data', sessionId, data)
       }
     })
 
     ptyProcess.onExit(({ exitCode }) => {
       console.log(`PTY ${sessionId} exited with code ${exitCode}`)
-      if (this.mainWindow) {
-        this.mainWindow.webContents.send('session:exit', sessionId, exitCode)
+      if (!webContents.isDestroyed()) {
+        webContents.send('session:exit', sessionId, exitCode)
       }
       this.sessions.delete(sessionId)
     })
@@ -164,6 +191,7 @@ precmd() {
       id: sessionId,
       pty: ptyProcess,
       cwd,
+      webContents,
     })
   }
 
@@ -171,8 +199,8 @@ precmd() {
     const session = this.sessions.get(sessionId)
     if (session) {
       // Detect Ctrl+C and notify to clear ports
-      if (data === '\x03' && this.mainWindow) {
-        this.mainWindow.webContents.send('session:port-clear', sessionId)
+      if (data === '\x03' && !session.webContents.isDestroyed()) {
+        session.webContents.send('session:port-clear', sessionId)
       }
       session.pty.write(data)
     }
@@ -223,6 +251,10 @@ precmd() {
       PS1: '> ',
       PROMPT: '> ',
       PATH: '/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+      // Locale settings for proper UTF-8 handling (especially important for production builds)
+      LANG: process.env.LANG || 'en_US.UTF-8',
+      LC_ALL: process.env.LC_ALL || 'en_US.UTF-8',
+      LC_CTYPE: process.env.LC_CTYPE || 'UTF-8',
     } as { [key: string]: string }
 
     const homeDir = os.homedir()
@@ -251,6 +283,13 @@ export PATH="${zshDir}/bin:\$PATH"
 PROMPT="> "
 precmd() {
   printf '\\033]7;file://%s%s\\033\\\\' "\${HOST}" "\${PWD}"
+  local branch
+  branch=\$(git branch --show-current 2>/dev/null)
+  if [[ -n "\$branch" ]]; then
+    printf '\\033]9999;%s\\033\\\\' "\$branch"
+  else
+    printf '\\033]9999;\\033\\\\'
+  fi
 }
 `)
 
@@ -280,6 +319,14 @@ precmd() {
           const currentDir = decodeURIComponent(osc7Match[1])
           this.dropdownWindow.webContents.send('dropdown:cwd', sessionId, currentDir)
         }
+
+        // Parse OSC 9999 for git branch
+        const osc9999Match = data.match(/\x1b\]9999;([^\x07\x1b]*)(?:\x07|\x1b\\)/)
+        if (osc9999Match) {
+          const gitBranch = osc9999Match[1] || ''
+          this.dropdownWindow.webContents.send('dropdown:git-branch', sessionId, gitBranch)
+        }
+
         this.dropdownWindow.webContents.send('dropdown:data', sessionId, data)
       }
     })

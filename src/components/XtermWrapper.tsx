@@ -1,10 +1,11 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { InputPopover } from './InputPopover'
 import { useInputPopoverStore } from '../stores/inputPopoverStore'
 import { useThemeStore } from '../stores/themeStore'
+import { useGhostCompletionStore } from '../stores/ghostCompletionStore'
 import claudeColorSvg from '/claude-color.svg'
 
 interface XtermWrapperProps {
@@ -34,6 +35,9 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
   const initializedRef = useRef(false)
   const cleanupRef = useRef<(() => void) | null>(null)
   const { currentTheme } = useThemeStore()
+  const cwdRef = useRef<string>(projectPath)
+  const { isActive: ghostActive, ghostText } = useGhostCompletionStore()
+  const [ghostPosition, setGhostPosition] = useState({ x: 0, y: 0 })
 
   // テーマからxtermのテーマオブジェクトを生成
   const getXtermTheme = useCallback(() => ({
@@ -90,9 +94,72 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
 
       // Intercept special keys - don't let xterm handle them
       terminal.attachCustomKeyEventHandler((event) => {
-        // Block Tab for pane cycling, but allow Shift+Tab for Claude Code
-        if (event.key === 'Tab' && !event.shiftKey) {
-          return false // Don't process Tab in terminal
+        // Tab key handling - completion when input exists, pane cycling otherwise
+        if (event.key === 'Tab' && !event.shiftKey && event.type === 'keydown') {
+          const ghostStore = useGhostCompletionStore.getState()
+
+          // If ghost is active, accept completion
+          if (ghostStore.isActive) {
+            window.electronAPI.writeSession(sessionId, ghostStore.ghostText)
+            ghostStore.clear()
+            return false
+          }
+
+          // Check if there's input - get current line
+          const buffer = terminal.buffer.active
+          const cursorY = buffer.cursorY + buffer.viewportY
+          const line = buffer.getLine(cursorY)
+          if (line) {
+            const lineText = line.translateToString(true)
+            const promptMatch = lineText.match(/^>\s*(.*)$/)
+            const currentInput = promptMatch ? promptMatch[1] : ''
+
+            if (currentInput) {
+              // Has input - trigger completion
+              window.electronAPI.getCompletion({
+                input: currentInput,
+                cwd: cwdRef.current,
+                projectPath,
+              }).then((result) => {
+                if (result.completion) {
+                  const screenEl = containerRef.current?.querySelector('.xterm-screen')
+                  if (screenEl) {
+                    const screenRect = screenEl.getBoundingClientRect()
+                    const cellWidth = screenRect.width / terminal.cols
+                    const cellHeight = screenRect.height / terminal.rows
+                    const pos = {
+                      x: buffer.cursorX * cellWidth,
+                      y: buffer.cursorY * cellHeight,
+                    }
+                    useGhostCompletionStore.getState().setGhost(result.completion, result.type, pos.x, pos.y)
+                    setGhostPosition(pos)
+                  }
+                }
+              })
+              return false
+            }
+          }
+          // No input - let parent handle pane cycling
+          return false
+        }
+
+        // ArrowRight accepts ghost completion
+        if (event.key === 'ArrowRight' && event.type === 'keydown') {
+          const ghostStore = useGhostCompletionStore.getState()
+          if (ghostStore.isActive) {
+            window.electronAPI.writeSession(sessionId, ghostStore.ghostText)
+            ghostStore.clear()
+            return false
+          }
+        }
+
+        // Escape clears ghost
+        if (event.key === 'Escape' && event.type === 'keydown') {
+          const ghostStore = useGhostCompletionStore.getState()
+          if (ghostStore.isActive) {
+            ghostStore.clear()
+            return false
+          }
         }
         // Open popover on ArrowDown when active pane (only on keydown to avoid double trigger)
         if (event.key === 'ArrowDown' && event.type === 'keydown' && !useInputPopoverStore.getState().isOpen) {
@@ -147,6 +214,8 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
 
       // Handle input
       terminal.onData((data) => {
+        // Clear ghost when user types
+        useGhostCompletionStore.getState().clear()
         window.electronAPI.writeSession(sessionId, data)
       })
 
@@ -154,6 +223,13 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
       const unsubscribeData = window.electronAPI.onSessionData((sid: string, data: string) => {
         if (sid === sessionId && terminalRef.current) {
           terminalRef.current.write(data)
+        }
+      })
+
+      // Track cwd changes
+      const unsubscribeCwd = window.electronAPI.onSessionCwd((sid: string, cwd: string) => {
+        if (sid === sessionId) {
+          cwdRef.current = cwd
         }
       })
 
@@ -177,6 +253,7 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
         window.removeEventListener('resize', handleResize)
         resizeObserver.disconnect()
         unsubscribeData()
+        unsubscribeCwd()
       }
     }
 
@@ -238,6 +315,18 @@ export function XtermWrapper({ sessionId, isActive, projectPath }: XtermWrapperP
         ref={containerRef}
         className="xterm-container"
       />
+      {/* Ghost completion overlay */}
+      {ghostActive && (
+        <div
+          className="ghost-completion-overlay"
+          style={{
+            left: ghostPosition.x,
+            top: ghostPosition.y,
+          }}
+        >
+          {ghostText}
+        </div>
+      )}
       <ClaudeButton onClick={handleClaudeClick} />
       {isActive && <InputPopover projectPath={projectPath} />}
     </div>

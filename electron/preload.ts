@@ -6,17 +6,20 @@ type ExitCallback = (sessionId: string, exitCode: number) => void
 type CwdCallback = (sessionId: string, cwd: string) => void
 type PortCallback = (sessionId: string, port: number) => void
 type PortClearCallback = (sessionId: string) => void
+type GitBranchCallback = (sessionId: string, branch: string) => void
 
 const dataCallbacks: Set<DataCallback> = new Set()
 const exitCallbacks: Set<ExitCallback> = new Set()
 const cwdCallbacks: Set<CwdCallback> = new Set()
 const portCallbacks: Set<PortCallback> = new Set()
 const portClearCallbacks: Set<PortClearCallback> = new Set()
+const gitBranchCallbacks: Set<GitBranchCallback> = new Set()
 
 // Dropdown callbacks
 const dropdownDataCallbacks: Set<DataCallback> = new Set()
 const dropdownCwdCallbacks: Set<CwdCallback> = new Set()
 const dropdownExitCallbacks: Set<ExitCallback> = new Set()
+const dropdownGitBranchCallbacks: Set<GitBranchCallback> = new Set()
 
 // Set up global listeners once
 let listenersInitialized = false
@@ -45,6 +48,10 @@ function initializeListeners() {
     portClearCallbacks.forEach(cb => cb(sessionId))
   })
 
+  ipcRenderer.on('session:git-branch', (_event: unknown, sessionId: string, branch: string) => {
+    gitBranchCallbacks.forEach(cb => cb(sessionId, branch))
+  })
+
   // Dropdown listeners
   ipcRenderer.on('dropdown:data', (_event: unknown, sessionId: string, data: string) => {
     dropdownDataCallbacks.forEach(cb => cb(sessionId, data))
@@ -56,6 +63,10 @@ function initializeListeners() {
 
   ipcRenderer.on('dropdown:exit', (_event: unknown, sessionId: string, exitCode: number) => {
     dropdownExitCallbacks.forEach(cb => cb(sessionId, exitCode))
+  })
+
+  ipcRenderer.on('dropdown:git-branch', (_event: unknown, sessionId: string, branch: string) => {
+    dropdownGitBranchCallbacks.forEach(cb => cb(sessionId, branch))
   })
 }
 
@@ -103,6 +114,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     portClearCallbacks.add(callback)
     return () => portClearCallbacks.delete(callback)
   },
+  onSessionGitBranch: (callback: GitBranchCallback) => {
+    initializeListeners()
+    gitBranchCallbacks.add(callback)
+    return () => gitBranchCallbacks.delete(callback)
+  },
 
   // Project info
   getProjectInfo: (projectPath: string) => ipcRenderer.invoke('project:info', projectPath),
@@ -147,11 +163,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
     dropdownExitCallbacks.add(callback)
     return () => dropdownExitCallbacks.delete(callback)
   },
+  onDropdownGitBranch: (callback: GitBranchCallback) => {
+    initializeListeners()
+    dropdownGitBranchCallbacks.add(callback)
+    return () => dropdownGitBranchCallbacks.delete(callback)
+  },
 
   // Settings
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (settings: Record<string, unknown>) =>
     ipcRenderer.invoke('settings:save', settings),
+
+  // Completion
+  getCompletion: (request: { input: string; cwd: string; projectPath: string }) =>
+    ipcRenderer.invoke('completion:get', request),
 
   // Updater
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),

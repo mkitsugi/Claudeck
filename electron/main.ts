@@ -16,6 +16,7 @@ import {
   getCommandsByProject,
   getFavorites,
 } from './services/commandStorage'
+import { getCompletion, type CompletionRequest } from './services/completionService'
 import { loadSettings, saveSettings, type Settings } from './services/settingsStorage'
 import { initUpdater, setupUpdaterIpc } from './services/updater'
 
@@ -37,7 +38,10 @@ async function toggleDropdownTerminal() {
     isDropdownVisible = false
     await dropdownAnimator.slideOut(dropdownWindow, getDropdownHiddenY(DROPDOWN_HEIGHT), ANIMATION_DURATION)
   } else {
-    // Show
+    // Show on current space by toggling visibleOnAllWorkspaces
+    dropdownWindow.setVisibleOnAllWorkspaces(false)
+    dropdownWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
     isDropdownVisible = true
     await dropdownAnimator.slideIn(dropdownWindow, getDropdownTargetY(), ANIMATION_DURATION)
     dropdownWindow.focus()
@@ -147,9 +151,9 @@ ipcMain.handle('projects:refresh', async () => {
 })
 
 // Session IPC handlers
-ipcMain.handle('session:create', async (_event, _projectId: string, cwd: string) => {
+ipcMain.handle('session:create', async (event, _projectId: string, cwd: string) => {
   const sessionId = randomUUID()
-  ptyManager.create(sessionId, cwd)
+  ptyManager.create(sessionId, cwd, event.sender)
   return sessionId
 })
 
@@ -255,4 +259,9 @@ ipcMain.handle('settings:load', async () => {
 
 ipcMain.handle('settings:save', async (_event, settings: Partial<Settings>) => {
   return saveSettings(settings)
+})
+
+// Completion IPC handler
+ipcMain.handle('completion:get', async (_event, request: CompletionRequest) => {
+  return getCompletion(request)
 })

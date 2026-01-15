@@ -37,7 +37,7 @@ export function InputPopover({ projectPath }: InputPopoverProps) {
     close,
   } = useInputPopoverStore()
 
-  const { entries, favorites, sortMode, loadCommands } = useCommandStore()
+  const { entries, favorites, sortMode, loadCommands, addCommand } = useCommandStore()
   const { scripts, packageManager, loadScripts } = useScriptsStore()
   const { activeSessionId } = useSessionStore()
   const popoverRef = useRef<HTMLDivElement>(null)
@@ -75,12 +75,15 @@ export function InputPopover({ projectPath }: InputPopoverProps) {
   const maxIndex = currentItems.length - 1
 
   const runHistoryCommand = useCallback(
-    (command: string) => {
+    async (command: string) => {
       if (!activeSessionId) return
       window.electronAPI.writeSession(activeSessionId, command + '\n')
+      if (projectPath) {
+        await addCommand(command, projectPath)
+      }
       close()
     },
-    [activeSessionId, close]
+    [activeSessionId, projectPath, addCommand, close]
   )
 
   const runScript = useCallback(

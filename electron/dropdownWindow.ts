@@ -42,6 +42,9 @@ export function createDropdownWindow(preloadPath: string, config: Partial<Dropdo
     },
   })
 
+  // Show on all workspaces (for macOS space switching)
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+
   // Prevent window from being closed, just hide it
   win.on('close', (e) => {
     e.preventDefault()

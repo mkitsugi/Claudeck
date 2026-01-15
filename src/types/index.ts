@@ -54,6 +54,7 @@ export interface ElectronAPI {
   onSessionCwd: (callback: (sessionId: string, cwd: string) => void) => () => void
   onSessionPort: (callback: (sessionId: string, port: number) => void) => () => void
   onSessionPortClear: (callback: (sessionId: string) => void) => () => void
+  onSessionGitBranch: (callback: (sessionId: string, branch: string) => void) => () => void
 
   // Scripts
   readScripts: (projectPath: string) => Promise<ScriptsInfo>
@@ -76,10 +77,14 @@ export interface ElectronAPI {
   onDropdownData: (callback: (sessionId: string, data: string) => void) => () => void
   onDropdownCwd: (callback: (sessionId: string, cwd: string) => void) => () => void
   onDropdownExit: (callback: (sessionId: string, exitCode: number) => void) => () => void
+  onDropdownGitBranch: (callback: (sessionId: string, branch: string) => void) => () => void
 
   // Settings
   loadSettings: () => Promise<Settings>
   saveSettings: (settings: Partial<Settings>) => Promise<Settings>
+
+  // Completion
+  getCompletion: (request: CompletionRequest) => Promise<CompletionResult>
 
   // Updater
   checkForUpdates: () => Promise<UpdateCheckResult | null>
@@ -127,6 +132,20 @@ export interface UpdateProgress {
 
 export interface UpdateCheckResult {
   updateInfo: UpdateInfo
+}
+
+export interface CompletionRequest {
+  input: string
+  cwd: string
+  projectPath: string
+}
+
+export type CompletionType = 'path' | 'history' | 'git' | 'command' | null
+
+export interface CompletionResult {
+  suggestion: string | null
+  type: CompletionType
+  completion: string
 }
 
 declare global {

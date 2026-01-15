@@ -1455,3 +1455,15 @@ body,
 .settings-modal .settings-tab {
     max-height: calc(80vh - 60px);
 }
+
+/* Ghost Completion Overlay */
+.ghost-completion-overlay {
+    position: absolute;
+    pointer-events: none;
+    color: var(--text-muted);
+    font-family: 'Menlo', Monaco, 'Courier New', monospace;
+    font-size: 14px;
+    white-space: pre;
+    z-index: 100;
+    opacity: 0.6;
+}

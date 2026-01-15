@@ -9,6 +9,7 @@ interface SessionHeaderProps {
   ports?: number[]
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
+  sessionId?: string
 }
 
 function SettingsModal({ onClose }: { onClose: () => void }) {
@@ -27,15 +28,30 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
   )
 }
 
-export function SessionHeader({ projectPath, ports = [], sidebarCollapsed, onToggleSidebar }: SessionHeaderProps) {
+export function SessionHeader({ projectPath, ports = [], sidebarCollapsed, onToggleSidebar, sessionId }: SessionHeaderProps) {
   const [info, setInfo] = useState<ProjectInfo | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [gitBranch, setGitBranch] = useState<string>('')
 
   useEffect(() => {
     if (projectPath) {
-      window.electronAPI.getProjectInfo(projectPath).then(setInfo)
+      window.electronAPI.getProjectInfo(projectPath).then((projectInfo) => {
+        setInfo(projectInfo)
+        setGitBranch(projectInfo.gitBranch)
+      })
     }
   }, [projectPath])
+
+  // Listen for git branch changes
+  useEffect(() => {
+    if (!sessionId) return
+    const unsubscribe = window.electronAPI.onSessionGitBranch((sid, branch) => {
+      if (sid === sessionId) {
+        setGitBranch(branch)
+      }
+    })
+    return unsubscribe
+  }, [sessionId])
 
   if (!info) return null
 
@@ -65,10 +81,10 @@ export function SessionHeader({ projectPath, ports = [], sidebarCollapsed, onTog
             {info.nodeVersion}
           </span>
         )}
-        {info.gitBranch && (
+        {gitBranch && (
           <span className="badge branch-badge">
             <GitBranch size={12} />
-            {info.gitBranch}
+            {gitBranch}
           </span>
         )}
         {uniquePorts.length > 0 && (
@@ -78,15 +94,13 @@ export function SessionHeader({ projectPath, ports = [], sidebarCollapsed, onTog
           </span>
         )}
         <div className="session-header-spacer" />
-        {!isDropdown && (
-          <button
-            className="settings-btn"
-            onClick={() => setShowSettings(true)}
-            title="設定"
-          >
-            <Settings size={16} />
-          </button>
-        )}
+        <button
+          className="settings-btn"
+          onClick={() => setShowSettings(true)}
+          title="設定"
+        >
+          <Settings size={16} />
+        </button>
       </div>
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </>

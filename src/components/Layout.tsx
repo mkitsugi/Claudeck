@@ -162,6 +162,7 @@ export function Layout() {
               ports={activePorts}
               sidebarCollapsed={sidebarCollapsed}
               onToggleSidebar={() => setSidebarCollapsed(false)}
+              sessionId={activeSessionId ?? undefined}
             />
             <div className="terminal-grid">
               {projectSessions.map((session, index) => (
