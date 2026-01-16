@@ -169,6 +169,12 @@ export function XtermWrapper({ sessionId, isActive, projectPath, onActivate }: X
         if (event.key === 'ArrowDown' && event.type === 'keydown' && !useInputPopoverStore.getState().isOpen) {
           // Check if we're at a prompt (look for prompt characters in current line)
           const buffer = terminal.buffer.active
+
+          // Don't open popover when alternate screen buffer is active (fzf, vim, less, git add -p, etc.)
+          if (buffer.type === 'alternate') {
+            return true // Let terminal handle it normally
+          }
+
           const cursorY = buffer.cursorY + buffer.viewportY
           const line = buffer.getLine(cursorY)
           if (line) {
