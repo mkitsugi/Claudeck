@@ -581,6 +581,12 @@ body,
     border: 2px solid var(--accent-primary);
     z-index: 10;
     overflow: visible;
+    flex: 3;
+}
+
+/* 同じカラム内でフォーカスがある場合、他のペインを縮小 */
+.terminal-column.has-focus .terminal-pane:not(.focused):not(.minimized) {
+    flex: 1;
 }
 
 /* Needs attention state - waiting for input in unfocused pane */
