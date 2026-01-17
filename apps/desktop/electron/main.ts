@@ -17,7 +17,7 @@ import {
   getFavorites,
 } from './services/commandStorage'
 import { getCompletion, type CompletionRequest } from './services/completionService'
-import { loadSettings, saveSettings, type Settings } from './services/settingsStorage'
+import { loadSettings, saveSettings, type Settings, DEFAULT_SHORTCUT_SETTINGS, type ShortcutSettings } from './services/settingsStorage'
 import { initUpdater, setupUpdaterIpc } from './services/updater'
 import { hooksServer, hookEventToState } from './services/hooksServer'
 import { hooksConfigManager } from './services/hooksConfigManager'
@@ -28,6 +28,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 let mainWindow: BrowserWindow | null = null
 let dropdownWindow: BrowserWindow | null = null
 let isDropdownVisible = false
+let currentShortcuts: ShortcutSettings = DEFAULT_SHORTCUT_SETTINGS
 
 const DROPDOWN_SESSION_ID = 'dropdown-terminal'
 const DROPDOWN_HEIGHT = 400
@@ -76,10 +77,16 @@ function createDropdown(appPath: string) {
 }
 
 function registerGlobalShortcuts() {
-  // Cmd+. to toggle dropdown terminal
-  globalShortcut.register('CommandOrControl+.', () => {
+  globalShortcut.unregisterAll()
+
+  // Register dropdown toggle shortcut
+  const success = globalShortcut.register(currentShortcuts.toggleDropdown, () => {
     toggleDropdownTerminal()
   })
+
+  if (!success) {
+    console.error('[Main] Failed to register global shortcut:', currentShortcuts.toggleDropdown)
+  }
 }
 
 function createWindow() {
@@ -115,6 +122,12 @@ function createWindow() {
 
 app.whenReady().then(async () => {
   const appPath = app.isPackaged ? app.getAppPath() : path.join(__dirname, '..')
+
+  // Load saved shortcuts
+  const settings = loadSettings()
+  if (settings.shortcuts) {
+    currentShortcuts = settings.shortcuts
+  }
 
   createWindow()
   createDropdown(appPath)
@@ -279,6 +292,40 @@ ipcMain.handle('settings:load', async () => {
 
 ipcMain.handle('settings:save', async (_event, settings: Partial<Settings>) => {
   return saveSettings(settings)
+})
+
+ipcMain.handle('settings:update-dropdown-style', async (_event, opts: { opacity: number; blur: number }) => {
+  // Send style update to dropdown window
+  if (dropdownWindow) {
+    dropdownWindow.webContents.send('settings:dropdown-style-update', opts)
+  }
+
+  // Save to settings
+  saveSettings({ dropdown: opts })
+})
+
+ipcMain.handle('settings:update-shortcuts', async (_event, shortcuts: ShortcutSettings) => {
+  const oldShortcuts = { ...currentShortcuts }
+  currentShortcuts = shortcuts
+
+  try {
+    registerGlobalShortcuts()
+
+    // Notify all windows about shortcut change
+    if (mainWindow) {
+      mainWindow.webContents.send('settings:shortcuts-updated', shortcuts)
+    }
+
+    // Save to settings
+    saveSettings({ shortcuts })
+
+    return { success: true }
+  } catch (error) {
+    // Rollback on failure
+    currentShortcuts = oldShortcuts
+    registerGlobalShortcuts()
+    return { success: false, error: String(error) }
+  }
 })
 
 // Completion IPC handler

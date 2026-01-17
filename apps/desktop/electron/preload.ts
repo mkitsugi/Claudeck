@@ -194,6 +194,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadSettings: () => ipcRenderer.invoke('settings:load'),
   saveSettings: (settings: Record<string, unknown>) =>
     ipcRenderer.invoke('settings:save', settings),
+  updateDropdownStyle: (opts: { opacity: number; blur: number }) =>
+    ipcRenderer.invoke('settings:update-dropdown-style', opts),
+  updateShortcuts: (shortcuts: Record<string, string>) =>
+    ipcRenderer.invoke('settings:update-shortcuts', shortcuts),
+  onShortcutsUpdated: (callback: (shortcuts: Record<string, string>) => void) => {
+    const handler = (_event: unknown, shortcuts: Record<string, string>) => callback(shortcuts)
+    ipcRenderer.on('settings:shortcuts-updated', handler)
+    return () => ipcRenderer.removeListener('settings:shortcuts-updated', handler)
+  },
+  onDropdownStyleUpdate: (callback: (opts: { opacity: number; blur: number }) => void) => {
+    const handler = (_event: unknown, opts: { opacity: number; blur: number }) => callback(opts)
+    ipcRenderer.on('settings:dropdown-style-update', handler)
+    return () => ipcRenderer.removeListener('settings:dropdown-style-update', handler)
+  },
 
   // Completion
   getCompletion: (request: { input: string; cwd: string; projectPath: string }) =>

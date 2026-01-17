@@ -6,8 +6,27 @@ import { useSessionStore } from './stores/sessionStore'
 import { useProjectStore } from './stores/projectStore'
 import { useSidebarStore } from './stores/sidebarStore'
 import { useThemeStore } from './stores/themeStore'
+import { useSettingsStore } from './stores/settingsStore'
 import { useGhostCompletionStore } from './stores/ghostCompletionStore'
 import './index.css'
+
+// Helper to check if a keyboard event matches a shortcut string
+function matchesShortcut(e: KeyboardEvent, shortcut: string): boolean {
+  const parts = shortcut.split('+')
+  const needsMeta = parts.includes('Meta') || parts.includes('CommandOrControl')
+  const needsCtrl = parts.includes('Control')
+  const needsAlt = parts.includes('Alt')
+  const needsShift = parts.includes('Shift')
+  const key = parts[parts.length - 1].toLowerCase()
+
+  return (
+    e.metaKey === needsMeta &&
+    e.ctrlKey === needsCtrl &&
+    e.altKey === needsAlt &&
+    e.shiftKey === needsShift &&
+    e.key.toLowerCase() === key
+  )
+}
 
 export function App() {
   const { toggle: toggleCommandPalette } = useScriptsStore()
@@ -16,11 +35,13 @@ export function App() {
   const { sessions, activeSessionId, setActiveSession } = useSessionStore()
   const { selectedProjectId } = useProjectStore()
   const { initializeTheme } = useThemeStore()
+  const { shortcuts, initialize: initializeSettings } = useSettingsStore()
 
-  // テーマの初期化
+  // テーマと設定の初期化
   useEffect(() => {
     initializeTheme()
-  }, [initializeTheme])
+    initializeSettings()
+  }, [initializeTheme, initializeSettings])
 
   const cyclePane = useCallback((direction: 'next' | 'prev') => {
     const projectSessions = sessions.filter(s => s.projectId === selectedProjectId)
@@ -40,20 +61,23 @@ export function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd + K to open command palette
-      if (e.metaKey && e.key === 'k') {
+      // Command palette shortcut
+      if (matchesShortcut(e, shortcuts.commandPalette)) {
         e.preventDefault()
         toggleCommandPalette()
+        return
       }
-      // Cmd + H to open command history
-      if (e.metaKey && e.key === 'h') {
+      // Command history shortcut
+      if (matchesShortcut(e, shortcuts.commandHistory)) {
         e.preventDefault()
         toggleCommandHistory()
+        return
       }
-      // Cmd + B to toggle sidebar
-      if (e.metaKey && e.key === 'b') {
+      // Toggle sidebar shortcut
+      if (matchesShortcut(e, shortcuts.toggleSidebar)) {
         e.preventDefault()
         toggleSidebar()
+        return
       }
       // Tab to cycle through panes (Shift+Tab is reserved for Claude Code)
       // Skip if ghost completion is active or was just accepted
@@ -71,7 +95,7 @@ export function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [toggleCommandPalette, toggleCommandHistory, toggleSidebar, cyclePane])
+  }, [shortcuts, toggleCommandPalette, toggleCommandHistory, toggleSidebar, cyclePane])
 
   return <Layout />
 }

@@ -10,6 +10,15 @@ export function DropdownTerminal() {
   const initializedRef = useRef(false)
   const [cwd, setCwd] = useState('')
 
+  // Listen for style updates from settings
+  useEffect(() => {
+    const unsubscribe = window.electronAPI.onDropdownStyleUpdate((opts) => {
+      document.documentElement.style.setProperty('--dropdown-opacity', String(opts.opacity / 100))
+      document.documentElement.style.setProperty('--dropdown-blur', `${opts.blur}px`)
+    })
+    return unsubscribe
+  }, [])
+
   useEffect(() => {
     console.log('DropdownTerminal useEffect', {
       container: containerRef.current,
