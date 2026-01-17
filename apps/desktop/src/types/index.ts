@@ -108,6 +108,10 @@ export interface ElectronAPI {
   // Settings
   loadSettings: () => Promise<Settings>
   saveSettings: (settings: Partial<Settings>) => Promise<Settings>
+  updateDropdownStyle: (opts: { opacity: number; blur: number }) => Promise<void>
+  updateShortcuts: (shortcuts: ShortcutSettings) => Promise<{ success: boolean; error?: string }>
+  onShortcutsUpdated: (callback: (shortcuts: ShortcutSettings) => void) => () => void
+  onDropdownStyleUpdate: (callback: (opts: { opacity: number; blur: number }) => void) => () => void
 
   // Completion
   getCompletion: (request: CompletionRequest) => Promise<CompletionResult>
@@ -144,10 +148,38 @@ export interface CommandData {
   entries: CommandEntry[]
 }
 
+// Dropdown settings
+export interface DropdownSettings {
+  opacity: number  // 0-100 (%)
+  blur: number     // 0-50 (px)
+}
+
+export const DEFAULT_DROPDOWN_SETTINGS: DropdownSettings = {
+  opacity: 92,
+  blur: 20,
+}
+
+// Shortcut settings
+export interface ShortcutSettings {
+  toggleDropdown: string
+  commandPalette: string
+  commandHistory: string
+  toggleSidebar: string
+}
+
+export const DEFAULT_SHORTCUT_SETTINGS: ShortcutSettings = {
+  toggleDropdown: 'CommandOrControl+.',
+  commandPalette: 'Meta+K',
+  commandHistory: 'Meta+H',
+  toggleSidebar: 'Meta+B',
+}
+
 export interface Settings {
   version: 1
   themeId: string
   themeMode?: 'light' | 'dark' | 'system'
+  dropdown?: DropdownSettings
+  shortcuts?: ShortcutSettings
 }
 
 export interface UpdateInfo {

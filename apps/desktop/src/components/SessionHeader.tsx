@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Folder, GitBranch, Globe, PanelLeft, Settings, X } from 'lucide-react'
+import { Folder, GitBranch, Globe, PanelLeft, Settings } from 'lucide-react'
 import { isDropdownMode } from '../utils/isDropdownMode'
-import { SettingsTab } from './SettingsTab'
+import { SettingsModal } from './settings'
 import type { ProjectInfo } from '../types'
 
 interface SessionHeaderProps {
@@ -10,22 +10,6 @@ interface SessionHeaderProps {
   sidebarCollapsed?: boolean
   onToggleSidebar?: () => void
   sessionId?: string
-}
-
-function SettingsModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="settings-modal-overlay" onClick={onClose}>
-      <div className="settings-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="settings-modal-header">
-          <h2>設定</h2>
-          <button className="settings-modal-close" onClick={onClose}>
-            <X size={16} />
-          </button>
-        </div>
-        <SettingsTab />
-      </div>
-    </div>
-  )
 }
 
 export function SessionHeader({ projectPath, ports = [], sidebarCollapsed, onToggleSidebar, sessionId }: SessionHeaderProps) {

@@ -5,14 +5,43 @@ import os from 'os'
 const CLAUDECK_DIR = path.join(os.homedir(), '.claudeck')
 const SETTINGS_FILE = path.join(CLAUDECK_DIR, 'settings.json')
 
+export interface DropdownSettings {
+  opacity: number
+  blur: number
+}
+
+export interface ShortcutSettings {
+  toggleDropdown: string
+  commandPalette: string
+  commandHistory: string
+  toggleSidebar: string
+}
+
 export interface Settings {
   version: 1
   themeId: string
+  themeMode?: 'light' | 'dark' | 'system'
+  dropdown?: DropdownSettings
+  shortcuts?: ShortcutSettings
+}
+
+export const DEFAULT_DROPDOWN_SETTINGS: DropdownSettings = {
+  opacity: 92,
+  blur: 20,
+}
+
+export const DEFAULT_SHORTCUT_SETTINGS: ShortcutSettings = {
+  toggleDropdown: 'CommandOrControl+.',
+  commandPalette: 'Meta+K',
+  commandHistory: 'Meta+H',
+  toggleSidebar: 'Meta+B',
 }
 
 const DEFAULT_SETTINGS: Settings = {
   version: 1,
   themeId: 'dark',
+  dropdown: DEFAULT_DROPDOWN_SETTINGS,
+  shortcuts: DEFAULT_SHORTCUT_SETTINGS,
 }
 
 function ensureDir() {
