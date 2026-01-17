@@ -32,6 +32,7 @@ export function createDropdownWindow(preloadPath: string, config: Partial<Dropdo
     skipTaskbar: true,
     focusable: true,
     show: false,
+    // vibrancy will be set dynamically via setVibrancy() based on user settings
     vibrancy: 'under-window',
     visualEffectState: 'active',
     hasShadow: true,

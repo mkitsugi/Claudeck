@@ -134,6 +134,13 @@ app.whenReady().then(async () => {
   registerGlobalShortcuts()
   setupUpdaterIpc()
 
+  // Apply saved dropdown style after window is ready
+  if (settings.dropdown && dropdownWindow) {
+    dropdownWindow.webContents.on('did-finish-load', () => {
+      applyDropdownStyle(settings.dropdown!)
+    })
+  }
+
   // Start hooks server for Claude Code integration
   try {
     await hooksServer.start()
@@ -295,14 +302,39 @@ ipcMain.handle('settings:save', async (_event, settings: Partial<Settings>) => {
 })
 
 ipcMain.handle('settings:update-dropdown-style', async (_event, opts: { opacity: number; blur: number }) => {
-  // Send style update to dropdown window
-  if (dropdownWindow) {
-    dropdownWindow.webContents.send('settings:dropdown-style-update', opts)
-  }
-
+  applyDropdownStyle(opts)
   // Save to settings
   saveSettings({ dropdown: opts })
 })
+
+ipcMain.handle('settings:preview-dropdown-style', async (_event, opts: { opacity: number; blur: number }) => {
+  // Preview without saving - for real-time feedback
+  applyDropdownStyle(opts)
+})
+
+function applyDropdownStyle(opts: { opacity: number; blur: number }) {
+  if (!dropdownWindow) {
+    console.log('[Main] applyDropdownStyle: dropdownWindow is null')
+    return
+  }
+
+  console.log('[Main] applyDropdownStyle:', opts)
+
+  // Set window opacity (0.0 to 1.0)
+  const opacityValue = opts.opacity / 100
+  dropdownWindow.setOpacity(opacityValue)
+  console.log('[Main] setOpacity:', opacityValue)
+
+  // Set vibrancy based on blur setting
+  // blur > 0 enables vibrancy, blur = 0 disables it
+  if (opts.blur > 0) {
+    dropdownWindow.setVibrancy('under-window')
+    console.log('[Main] setVibrancy: under-window')
+  } else {
+    dropdownWindow.setVibrancy(null)
+    console.log('[Main] setVibrancy: null')
+  }
+}
 
 ipcMain.handle('settings:update-shortcuts', async (_event, shortcuts: ShortcutSettings) => {
   const oldShortcuts = { ...currentShortcuts }

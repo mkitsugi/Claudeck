@@ -1,21 +1,45 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
 
 export function DropdownSettings() {
   const { dropdown, updateDropdown } = useSettingsStore()
   const [opacity, setOpacity] = useState(dropdown.opacity)
   const [blur, setBlur] = useState(dropdown.blur)
+  const originalSettings = useRef({ opacity: dropdown.opacity, blur: dropdown.blur })
 
   useEffect(() => {
     setOpacity(dropdown.opacity)
     setBlur(dropdown.blur)
+    originalSettings.current = { opacity: dropdown.opacity, blur: dropdown.blur }
   }, [dropdown])
+
+  // Debounced preview - applies to actual dropdown window in real-time
+  const previewStyle = useCallback((opts: { opacity: number; blur: number }) => {
+    window.electronAPI.previewDropdownStyle(opts)
+  }, [])
+
+  const handleOpacityChange = (value: number) => {
+    setOpacity(value)
+    previewStyle({ opacity: value, blur })
+  }
+
+  const handleBlurChange = (value: number) => {
+    setBlur(value)
+    previewStyle({ opacity, blur: value })
+  }
 
   const handleApply = async () => {
     await updateDropdown({ opacity, blur })
+    originalSettings.current = { opacity, blur }
   }
 
-  const hasChanges = opacity !== dropdown.opacity || blur !== dropdown.blur
+  const handleReset = () => {
+    setOpacity(originalSettings.current.opacity)
+    setBlur(originalSettings.current.blur)
+    previewStyle(originalSettings.current)
+  }
+
+  const hasChanges = opacity !== originalSettings.current.opacity || blur !== originalSettings.current.blur
 
   return (
     <div className="settings-content-inner">
@@ -23,6 +47,7 @@ export function DropdownSettings() {
         <h3 className="settings-section-title">ドロップダウンターミナル</h3>
         <p className="settings-description">
           Cmd+. で表示するドロップダウンターミナルの外観を設定します。
+          スライダーを動かすと実際のウィンドウでリアルタイムに確認できます。
         </p>
 
         <div className="setting-item">
@@ -35,7 +60,7 @@ export function DropdownSettings() {
             min={20}
             max={100}
             value={opacity}
-            onChange={(e) => setOpacity(Number(e.target.value))}
+            onChange={(e) => handleOpacityChange(Number(e.target.value))}
             className="setting-slider"
           />
         </div>
@@ -50,13 +75,13 @@ export function DropdownSettings() {
             min={0}
             max={50}
             value={blur}
-            onChange={(e) => setBlur(Number(e.target.value))}
+            onChange={(e) => handleBlurChange(Number(e.target.value))}
             className="setting-slider"
           />
         </div>
 
         <div className="dropdown-preview-container">
-          <label className="preview-label">プレビュー</label>
+          <label className="preview-label">プレビュー（実際のドロップダウンにも反映されます）</label>
           <div
             className="dropdown-preview"
             style={{
@@ -76,9 +101,14 @@ export function DropdownSettings() {
         </div>
 
         {hasChanges && (
-          <button className="settings-apply-btn" onClick={handleApply}>
-            適用
-          </button>
+          <div className="settings-actions">
+            <button className="settings-reset-btn" onClick={handleReset}>
+              リセット
+            </button>
+            <button className="settings-apply-btn" onClick={handleApply}>
+              適用
+            </button>
+          </div>
         )}
       </div>
     </div>

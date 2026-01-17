@@ -2159,6 +2159,34 @@ body,
     cursor: not-allowed;
 }
 
+/* Settings Actions */
+.settings-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+}
+
+.settings-actions .settings-apply-btn {
+    margin-top: 0;
+}
+
+.settings-reset-btn {
+    padding: 10px 20px;
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.settings-reset-btn:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
 /* Shortcut Input */
 .shortcut-input-row {
     display: flex;

@@ -196,6 +196,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('settings:save', settings),
   updateDropdownStyle: (opts: { opacity: number; blur: number }) =>
     ipcRenderer.invoke('settings:update-dropdown-style', opts),
+  previewDropdownStyle: (opts: { opacity: number; blur: number }) =>
+    ipcRenderer.invoke('settings:preview-dropdown-style', opts),
   updateShortcuts: (shortcuts: Record<string, string>) =>
     ipcRenderer.invoke('settings:update-shortcuts', shortcuts),
   onShortcutsUpdated: (callback: (shortcuts: Record<string, string>) => void) => {

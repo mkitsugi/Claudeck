@@ -109,6 +109,7 @@ export interface ElectronAPI {
   loadSettings: () => Promise<Settings>
   saveSettings: (settings: Partial<Settings>) => Promise<Settings>
   updateDropdownStyle: (opts: { opacity: number; blur: number }) => Promise<void>
+  previewDropdownStyle: (opts: { opacity: number; blur: number }) => Promise<void>
   updateShortcuts: (shortcuts: ShortcutSettings) => Promise<{ success: boolean; error?: string }>
   onShortcutsUpdated: (callback: (shortcuts: ShortcutSettings) => void) => () => void
   onDropdownStyleUpdate: (callback: (opts: { opacity: number; blur: number }) => void) => () => void
