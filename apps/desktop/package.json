@@ -23,6 +23,7 @@
   "build": {
     "appId": "com.claudeck.app",
     "productName": "Claudeck",
+    "icon": "build/icon.png",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",

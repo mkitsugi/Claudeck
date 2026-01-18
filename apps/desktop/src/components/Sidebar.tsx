@@ -7,13 +7,101 @@ import type { Project } from '../types'
 
 type TabType = 'all' | 'favorites'
 
-interface ProjectGroup {
-  parent: Project
-  children: Project[]
+interface ProjectTreeNode {
+  project: Project
+  children: ProjectTreeNode[]
 }
 
 interface SidebarProps {
   onCollapse?: () => void
+}
+
+// ツリー構築関数
+function buildTree(projects: Project[]): ProjectTreeNode[] {
+  const childMap = new Map<string | undefined, Project[]>()
+
+  projects.forEach(p => {
+    const parentId = p.parentProject
+    const siblings = childMap.get(parentId) || []
+    siblings.push(p)
+    childMap.set(parentId, siblings)
+  })
+
+  function buildNode(project: Project): ProjectTreeNode {
+    const children = (childMap.get(project.id) || [])
+      .sort((a, b) => a.name.localeCompare(b.name))
+    return {
+      project,
+      children: children.map(buildNode)
+    }
+  }
+
+  // ルートノード（親がないプロジェクト）
+  const roots = (childMap.get(undefined) || [])
+    .sort((a, b) => a.name.localeCompare(b.name))
+  return roots.map(buildNode)
+}
+
+interface ProjectTreeItemProps {
+  node: ProjectTreeNode
+  depth: number
+  selectedProjectId: string | null
+  expandedGroups: Set<string>
+  toggleGroup: (id: string) => void
+  selectProject: (id: string) => void
+}
+
+function ProjectTreeItem({
+  node,
+  depth,
+  selectedProjectId,
+  expandedGroups,
+  toggleGroup,
+  selectProject
+}: ProjectTreeItemProps) {
+  const hasChildren = node.children.length > 0
+  const isExpanded = expandedGroups.has(node.project.id)
+
+  return (
+    <div className="project-group">
+      <div className={`project-group-header ${selectedProjectId === node.project.id ? 'selected' : ''}`}>
+        {hasChildren && (
+          <button
+            className="expand-btn"
+            onClick={() => toggleGroup(node.project.id)}
+          >
+            {isExpanded ? (
+              <ChevronDown size={14} />
+            ) : (
+              <ChevronRight size={14} />
+            )}
+          </button>
+        )}
+        <ProjectItem
+          project={node.project}
+          isSelected={selectedProjectId === node.project.id}
+          onClick={() => selectProject(node.project.id)}
+          hasChildren={hasChildren}
+          depth={depth}
+        />
+      </div>
+      {hasChildren && isExpanded && (
+        <div className="project-children">
+          {node.children.map(child => (
+            <ProjectTreeItem
+              key={child.project.id}
+              node={child}
+              depth={depth + 1}
+              selectedProjectId={selectedProjectId}
+              expandedGroups={expandedGroups}
+              toggleGroup={toggleGroup}
+              selectProject={selectProject}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function Sidebar({ onCollapse }: SidebarProps) {
@@ -37,7 +125,15 @@ export function Sidebar({ onCollapse }: SidebarProps) {
       // Auto-expand groups that have the selected project
       const selected = result.find((p: Project) => p.id === selectedProjectId)
       if (selected?.parentProject) {
-        setExpandedGroups(prev => new Set([...prev, selected.parentProject!]))
+        // 選択されたプロジェクトの全ての親を展開
+        const parentsToExpand = new Set<string>()
+        let current = selected
+        while (current.parentProject) {
+          parentsToExpand.add(current.parentProject)
+          current = result.find((p: Project) => p.id === current.parentProject) as Project
+          if (!current) break
+        }
+        setExpandedGroups(prev => new Set([...prev, ...parentsToExpand]))
       }
     } catch (error) {
       console.error('Failed to scan projects:', error)
@@ -70,42 +166,32 @@ export function Sidebar({ onCollapse }: SidebarProps) {
     })
   }
 
-  // Group projects by parent-child relationship
-  const groupedProjects = useMemo(() => {
+  // フィルタリングしてツリーを構築
+  const projectTree = useMemo(() => {
     let filtered = projects.filter((p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.path.toLowerCase().includes(searchQuery.toLowerCase())
     )
 
-    // Filter by favorites if on favorites tab
-    // worktreeの場合は親がお気に入りなら表示する
+    // お気に入りタブの場合
     if (activeTab === 'favorites') {
+      // お気に入りプロジェクトとその子孫を含める
+      const favoriteIds = new Set(favorites)
+
+      // 親がお気に入りかどうかをチェック（祖先も含む）
+      const isAncestorFavorite = (project: Project): boolean => {
+        if (!project.parentProject) return false
+        if (favoriteIds.has(project.parentProject)) return true
+        const parent = projects.find(p => p.id === project.parentProject)
+        return parent ? isAncestorFavorite(parent) : false
+      }
+
       filtered = filtered.filter(p =>
-        favorites.includes(p.id) ||
-        (p.parentProject && favorites.includes(p.parentProject))
+        favoriteIds.has(p.id) || isAncestorFavorite(p)
       )
     }
 
-    const parentProjects = filtered.filter(p => !p.parentProject)
-    const childMap = new Map<string, Project[]>()
-
-    filtered.forEach(p => {
-      if (p.parentProject) {
-        const children = childMap.get(p.parentProject) || []
-        children.push(p)
-        childMap.set(p.parentProject, children)
-      }
-    })
-
-    const groups: ProjectGroup[] = parentProjects.map(parent => ({
-      parent,
-      children: childMap.get(parent.id) || []
-    }))
-
-    // Sort by name
-    groups.sort((a, b) => a.parent.name.localeCompare(b.parent.name))
-
-    return groups
+    return buildTree(filtered)
   }, [projects, searchQuery, activeTab, favorites])
 
   const isDropdown = isDropdownMode()
@@ -166,45 +252,19 @@ export function Sidebar({ onCollapse }: SidebarProps) {
       <div className="project-list">
         {isLoading && projects.length === 0 ? (
           <div className="loading">Scanning projects...</div>
-        ) : groupedProjects.length === 0 ? (
+        ) : projectTree.length === 0 ? (
           <div className="empty">No projects found</div>
         ) : (
-          groupedProjects.map((group) => (
-            <div key={group.parent.id} className="project-group">
-              <div className={`project-group-header ${selectedProjectId === group.parent.id ? 'selected' : ''}`}>
-                {group.children.length > 0 && (
-                  <button
-                    className="expand-btn"
-                    onClick={() => toggleGroup(group.parent.id)}
-                  >
-                    {expandedGroups.has(group.parent.id) ? (
-                      <ChevronDown size={14} />
-                    ) : (
-                      <ChevronRight size={14} />
-                    )}
-                  </button>
-                )}
-                <ProjectItem
-                  project={group.parent}
-                  isSelected={selectedProjectId === group.parent.id}
-                  onClick={() => selectProject(group.parent.id)}
-                  hasChildren={group.children.length > 0}
-                />
-              </div>
-              {group.children.length > 0 && expandedGroups.has(group.parent.id) && (
-                <div className="project-children">
-                  {group.children.map(child => (
-                    <ProjectItem
-                      key={child.id}
-                      project={child}
-                      isSelected={selectedProjectId === child.id}
-                      onClick={() => selectProject(child.id)}
-                      isChild
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
+          projectTree.map((node) => (
+            <ProjectTreeItem
+              key={node.project.id}
+              node={node}
+              depth={0}
+              selectedProjectId={selectedProjectId}
+              expandedGroups={expandedGroups}
+              toggleGroup={toggleGroup}
+              selectProject={selectProject}
+            />
           ))
         )}
       </div>

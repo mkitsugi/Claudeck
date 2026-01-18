@@ -1,4 +1,4 @@
-import { Folder, GitBranch, Star, Circle, Loader, MessageCircle } from 'lucide-react'
+import { Folder, GitBranch, FolderTree, Star, Circle, Loader, MessageCircle } from 'lucide-react'
 import type { Project, ClaudeState } from '../types'
 import { useProjectStore } from '../stores/projectStore'
 import { useSessionStore } from '../stores/sessionStore'
@@ -8,8 +8,8 @@ interface ProjectItemProps {
   project: Project
   isSelected: boolean
   onClick: () => void
-  isChild?: boolean
   hasChildren?: boolean
+  depth?: number  // ネストの深さ
 }
 
 // 優先度: waiting-input > processing > idle
@@ -25,11 +25,12 @@ const STATE_ICON_MAP: Record<ClaudeState, typeof Circle> = {
   'waiting-input': MessageCircle,
 }
 
-export function ProjectItem({ project, isSelected, onClick, isChild, hasChildren }: ProjectItemProps) {
+export function ProjectItem({ project, isSelected, onClick, hasChildren, depth = 0 }: ProjectItemProps) {
   const { projects, favorites, toggleFavorite } = useProjectStore()
   const sessions = useSessionStore((state) => state.sessions)
   const sessionStates = useClaudeStateStore((state) => state.sessionStates)
   const isFavorite = favorites.includes(project.id)
+  const isChild = depth > 0
 
   // このプロジェクトに関連するセッションの状態を取得
   const projectSessions = sessions.filter((s) => s.projectId === project.id)
@@ -67,19 +68,28 @@ export function ProjectItem({ project, isSelected, onClick, isChild, hasChildren
     return project.name
   })()
 
+  // 深さに応じたインデントを計算
+  const basePadding = hasChildren ? 0 : 22
+  const depthPadding = depth * 16  // 各階層ごとに16pxのインデント
+
   return (
     <div
       className={`project-item ${isSelected ? 'selected' : ''} ${isChild ? 'child' : ''}`}
       onClick={onClick}
-      style={{ paddingLeft: isChild ? '32px' : hasChildren ? '0' : '22px' }}
+      style={{ paddingLeft: basePadding + depthPadding }}
     >
       <Folder size={16} className="project-icon" />
       <div className="project-info">
         <span className="project-name">{displayName}</span>
-        {project.isWorktree && project.branch && (
+        {project.parentType === 'worktree' && project.branch && (
           <span className="project-branch">
             <GitBranch size={10} />
             {project.branch}
+          </span>
+        )}
+        {project.parentType === 'path' && (
+          <span className="project-subdir">
+            <FolderTree size={10} />
           </span>
         )}
       </div>

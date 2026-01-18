@@ -10,13 +10,37 @@ export function DropdownTerminal() {
   const initializedRef = useRef(false)
   const [cwd, setCwd] = useState('')
 
-  // Listen for style updates from settings
+  // Apply style to CSS variables
+  const applyStyle = (opts: { opacity: number; blur: number }) => {
+    console.log('[DropdownTerminal] Applying style:', opts)
+    document.documentElement.style.setProperty('--dropdown-opacity', String(opts.opacity / 100))
+    document.documentElement.style.setProperty('--dropdown-blur', `${opts.blur}px`)
+  }
+
+  // Load initial settings and listen for updates
   useEffect(() => {
-    const unsubscribe = window.electronAPI.onDropdownStyleUpdate((opts) => {
-      document.documentElement.style.setProperty('--dropdown-opacity', String(opts.opacity / 100))
-      document.documentElement.style.setProperty('--dropdown-blur', `${opts.blur}px`)
+    console.log('[DropdownTerminal] useEffect for style listener mounting...')
+
+    // Load current settings on mount
+    window.electronAPI.loadSettings().then((settings) => {
+      console.log('[DropdownTerminal] Settings loaded:', settings)
+      if (settings.dropdown) {
+        console.log('[DropdownTerminal] Initial dropdown settings:', settings.dropdown)
+        applyStyle(settings.dropdown)
+      }
     })
-    return unsubscribe
+
+    // Listen for style updates from settings
+    console.log('[DropdownTerminal] Registering onDropdownStyleUpdate listener...')
+    const unsubscribe = window.electronAPI.onDropdownStyleUpdate((opts) => {
+      console.log('[DropdownTerminal] Style update received:', opts)
+      applyStyle(opts)
+    })
+    console.log('[DropdownTerminal] Listener registered')
+    return () => {
+      console.log('[DropdownTerminal] Unsubscribing listener')
+      unsubscribe()
+    }
   }, [])
 
   useEffect(() => {

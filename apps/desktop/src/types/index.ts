@@ -5,6 +5,7 @@ export interface Project {
   type: 'claude-dir' | 'claude-md'
   isWorktree: boolean
   parentProject?: string
+  parentType?: 'worktree' | 'path'  // 親子関係の種類
   branch?: string
   worktrees?: Worktree[]
 }

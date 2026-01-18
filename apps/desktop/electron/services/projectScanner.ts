@@ -10,6 +10,7 @@ export interface Project {
   type: 'claude-dir' | 'claude-md'
   isWorktree: boolean
   parentProject?: string
+  parentType?: 'worktree' | 'path'  // 親子関係の種類
   branch?: string
   lastModified: number
 }
@@ -168,6 +169,7 @@ function scanDirectory(
               type: hasClaudeDir ? 'claude-dir' : 'claude-md',
               isWorktree: true,
               parentProject: id,
+              parentType: 'worktree',
               branch: wt.branch,
               lastModified: wtLastModified,
             })
@@ -190,6 +192,51 @@ function scanDirectory(
   }
 }
 
+/**
+ * パス階層に基づいて親子関係を解析する
+ * worktreeで既に親が設定されている場合はスキップ
+ * ホームディレクトリは親として扱わない
+ */
+function resolvePathHierarchy(projects: Map<string, Project>): void {
+  const projectList = Array.from(projects.values())
+  const homeDir = os.homedir()
+
+  // パスの浅い順にソート
+  projectList.sort((a, b) =>
+    a.path.split(path.sep).length - b.path.split(path.sep).length
+  )
+
+  for (const project of projectList) {
+    // worktreeで既に親が設定されている場合はスキップ
+    if (project.parentProject && project.isWorktree) {
+      continue
+    }
+
+    // パス階層から最も近い親を探す
+    let closestParent: Project | null = null
+    let closestDepth = 0
+
+    for (const candidate of projectList) {
+      if (candidate.id === project.id) continue
+      // ホームディレクトリ自体は親として扱わない
+      if (candidate.path === homeDir) continue
+      // 自分のパスがcandidateのパス配下にあるかチェック
+      if (project.path.startsWith(candidate.path + path.sep)) {
+        const depth = candidate.path.split(path.sep).length
+        if (depth > closestDepth) {
+          closestParent = candidate
+          closestDepth = depth
+        }
+      }
+    }
+
+    if (closestParent) {
+      project.parentProject = closestParent.id
+      project.parentType = 'path'
+    }
+  }
+}
+
 let cachedProjects: Project[] | null = null
 
 export function scanProjects(forceRefresh = false): Project[] {
@@ -201,6 +248,9 @@ export function scanProjects(forceRefresh = false): Project[] {
   const homeDir = os.homedir()
 
   scanDirectory(homeDir, 0, projects)
+
+  // パス階層に基づいて親子関係を解析
+  resolvePathHierarchy(projects)
 
   // Sort by lastModified descending (newest first)
   cachedProjects = Array.from(projects.values()).sort((a, b) =>
