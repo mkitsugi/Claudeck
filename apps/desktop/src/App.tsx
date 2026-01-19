@@ -7,7 +7,6 @@ import { useProjectStore } from './stores/projectStore'
 import { useSidebarStore } from './stores/sidebarStore'
 import { useThemeStore } from './stores/themeStore'
 import { useSettingsStore } from './stores/settingsStore'
-import { useGhostCompletionStore } from './stores/ghostCompletionStore'
 import './index.css'
 
 // Helper to check if a keyboard event matches a shortcut string
@@ -32,7 +31,7 @@ export function App() {
   const { toggle: toggleCommandPalette } = useScriptsStore()
   const { toggle: toggleCommandHistory } = useCommandStore()
   const { toggle: toggleSidebar } = useSidebarStore()
-  const { sessions, activeSessionId, setActiveSession } = useSessionStore()
+  const { sessions, setActiveSession } = useSessionStore()
   const { selectedProjectId } = useProjectStore()
   const { initializeTheme } = useThemeStore()
   const { shortcuts, initialize: initializeSettings } = useSettingsStore()
@@ -43,21 +42,12 @@ export function App() {
     initializeSettings()
   }, [initializeTheme, initializeSettings])
 
-  const cyclePane = useCallback((direction: 'next' | 'prev') => {
+  const selectPane = useCallback((index: number) => {
     const projectSessions = sessions.filter(s => s.projectId === selectedProjectId)
-    if (projectSessions.length === 0) return
-
-    const currentIndex = projectSessions.findIndex(s => s.id === activeSessionId)
-    let nextIndex: number
-
-    if (direction === 'next') {
-      nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % projectSessions.length
-    } else {
-      nextIndex = currentIndex === -1 ? 0 : (currentIndex - 1 + projectSessions.length) % projectSessions.length
+    if (index < projectSessions.length) {
+      setActiveSession(projectSessions[index].id)
     }
-
-    setActiveSession(projectSessions[nextIndex].id)
-  }, [sessions, selectedProjectId, activeSessionId, setActiveSession])
+  }, [sessions, selectedProjectId, setActiveSession])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -79,23 +69,19 @@ export function App() {
         toggleSidebar()
         return
       }
-      // Tab to cycle through panes (Shift+Tab is reserved for Claude Code)
-      // Skip if ghost completion is active or was just accepted
-      if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
-        const ghostStore = useGhostCompletionStore.getState()
-        if (ghostStore.isActive || ghostStore.justAccepted) {
-          // Ghost is active or just accepted - prevent default Tab behavior (focus change)
+      // Cmd+1,2,3,4 to switch panes directly
+      if (e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
+        const paneIndex = ['1', '2', '3', '4'].indexOf(e.key)
+        if (paneIndex !== -1) {
           e.preventDefault()
-          return
+          selectPane(paneIndex)
         }
-        e.preventDefault()
-        cyclePane('next')
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [shortcuts, toggleCommandPalette, toggleCommandHistory, toggleSidebar, cyclePane])
+  }, [shortcuts, toggleCommandPalette, toggleCommandHistory, toggleSidebar, selectPane])
 
   return <Layout />
 }
