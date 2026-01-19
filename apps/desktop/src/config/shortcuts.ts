@@ -24,8 +24,7 @@ export const SHORTCUTS: Shortcut[] = [
 
   // Claudeck
   { keys: 'Cmd + H', description: 'コマンド履歴', category: 'claudeck' },
-  { keys: 'Tab', description: '次のペインに移動', category: 'claudeck' },
-  { keys: 'Shift + Tab', description: 'Claude Code サジェスト受け入れ', category: 'terminal' },
+  { keys: 'Cmd + 1~4', description: 'ペイン切り替え', category: 'claudeck' },
 ]
 
 export const CATEGORY_LABELS: Record<ShortcutCategory, string> = {
